@@ -71,6 +71,18 @@ classdef TimeSeries < handle
                 TSObj = TimeSeries(name_n,dates_n,values_n,this.type);
             end
         end
+
+        % getLastValue
+        function val = getLastValue(this)
+            val = this.values;
+            val = val(end);
+        end
+
+        % getLastDate
+        function dat = getLastDate(this)
+            dat = this.dates;
+            dat = dat(end);
+        end
     end
 
     %% Private methods

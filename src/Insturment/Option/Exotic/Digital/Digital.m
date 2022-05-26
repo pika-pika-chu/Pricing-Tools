@@ -9,7 +9,7 @@ classdef Digital < Exotic
     %% Constructor
     methods
         function this = Digital(varargin)
-            this = this@Exotic(varargin);
+            this = this@Exotic(varargin{:});
         end
 
     end

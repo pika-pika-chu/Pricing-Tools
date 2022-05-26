@@ -1,4 +1,4 @@
-classdef Instrument < handle 
+classdef Instrument < handle
     % @dev: abstract class to parent instruments modelled
 
     %% Private Properties
@@ -11,6 +11,7 @@ classdef Instrument < handle
     %% Constructor
     methods
         function this = Instrument(varargin)
+            Logger.getInstance.log(LogType.INFO,'Instrument initalised');
         end
     end
 

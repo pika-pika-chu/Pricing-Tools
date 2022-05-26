@@ -8,23 +8,16 @@ classdef EuropeanOption < Option
     %% Constructor
     methods
         function this = EuropeanOption(varargin)
-            this = this@Option(varargin);
-            this.exerciseStyle = ExerciseStyle.EUROPEAN;
+            this = this@Option(varargin{:});
+            this.setExerciseStyle(ExerciseStyle.EUROPEAN);
+            Logger.getInstance.log(LogType.INFO,'EuropeanOption initalised');
         end
 
     end
     %% Getters and Setters
     methods (Access = public)
 
-        %getPrice
-        function price = getPrice(this)
-            price = this.price;
-        end
-        
-        %setPrice
-        function setPrice(this,price)
-            this.price = price;
-        end
+
     end
 end
 

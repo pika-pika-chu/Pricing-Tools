@@ -11,7 +11,8 @@ classdef Coin < Instrument
     %% Constructor
     methods
         function this = Coin(varargin)
-            this = this@Instrument(varargin);
+            this = this@Instrument(varargin{:});
+             Logger.getInstance.log(LogType.INFO,'Coin initalised');
         end
 
     end

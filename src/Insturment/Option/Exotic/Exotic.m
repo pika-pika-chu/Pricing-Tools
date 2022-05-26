@@ -9,7 +9,7 @@ classdef Exotic < Option
     %% Constructor
     methods
         function this = Exotic(varargin)
-            this = this@Option(varargin);
+            this = this@Option(varargin{:});
         end
 
     end

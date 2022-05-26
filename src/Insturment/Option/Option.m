@@ -8,12 +8,14 @@ classdef Option < Instrument
         maturity;
         exerciseStyle; % dev: set in child class constructor
         price; % dev: getters and setters in child class
+        underlying;
     end
 
     %% Constructor
     methods
         function this = Option(varargin)
-            this = this@Instrument(varargin);
+            this = this@Instrument(varargin{:});
+             Logger.getInstance.log(LogType.INFO,'Option initalised');
         end
 
     end
@@ -26,7 +28,13 @@ classdef Option < Instrument
 
         %setType
         function setType(this,type)
-            this.type = type;
+            if isempty(type)
+                Logger.getInstance.log(LogType.WARN,...
+                    'Type not parsed to EuropeanOption, set to default = call');
+                this.type = 'call';
+            else
+                this.type = type;
+            end
         end
 
         %getStrike
@@ -36,7 +44,12 @@ classdef Option < Instrument
 
         %setStrike
         function setStrike(this,strike)
-            this.strike = strike;
+            if isempty(strike)
+                Logger.getInstance.log(LogType.FATAL,...
+                    'Strike not parsed to EuropeanOption, Terminating...');
+            else
+                this.strike = strike;
+            end
         end
 
         %getMaturity
@@ -46,7 +59,12 @@ classdef Option < Instrument
 
         %setMaturity
         function setMaturity(this,maturity)
-            this.maturity = maturity;
+            if isempty(maturity)
+                Logger.getInstance.log(LogType.FATAL,...
+                    'Maturity not parsed to EuropeanOption, Terminating');
+            else
+                this.maturity = maturity;
+            end
         end
 
         %getExerciseStyle
@@ -57,6 +75,26 @@ classdef Option < Instrument
         %setExerciseStyle
         function setExerciseStyle(this,exerciseStyle)
             this.exerciseStyle = exerciseStyle;
+        end
+
+                %getPrice
+        function price = getPrice(this)
+            price = this.price;
+        end
+
+        %setPrice
+        function setPrice(this,price)
+            this.price = price;
+        end
+
+        %getUnderlying
+        function underlying = getUnderlying(this)
+            underlying = this.underlying;
+        end
+
+        %setUnderlying
+        function setUnderlying(this,underlying)
+            this.underlying = underlying;
         end
     end
 end
