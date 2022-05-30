@@ -1,2 +1,0 @@
-id,modelName,priceMethod,numOfIter,numOfPeriod
-m_1,SVCJ,continuous,10000,721
