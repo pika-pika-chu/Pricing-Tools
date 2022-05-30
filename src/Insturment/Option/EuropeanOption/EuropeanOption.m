@@ -3,6 +3,7 @@ classdef EuropeanOption < Option
 
     %% Private Properties
     properties (Access = private)
+        impliedVol;
     end
 
     %% Constructor
@@ -17,6 +18,15 @@ classdef EuropeanOption < Option
     %% Getters and Setters
     methods (Access = public)
 
+        %getImpliedVol
+        function impliedVol = getImpliedVol(this)
+            impliedVol = this.impliedVol;
+        end
+
+        %setImpliedVol
+        function setImpliedVol(this,impliedVol)
+            this.impliedVol = impliedVol;
+        end
 
     end
 end

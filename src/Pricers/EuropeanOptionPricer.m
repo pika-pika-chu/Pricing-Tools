@@ -49,7 +49,7 @@ classdef EuropeanOptionPricer < handle
     methods (Access = public)
 
         % calculatePrice
-        function calculatePrice(this)
+        function calculatePrice(this,varargin)
             % dev: apply payoff and update price in the instrument list
             for i = 1:length(this.instrumentList)
                 instrument = this.instrumentList(i);
@@ -59,17 +59,78 @@ classdef EuropeanOptionPricer < handle
                     ['Pricing instruement with id = ', num2str(instrument.getId),...
                     ' name = ',instrument.getName,' and type = ',instrument.getType]);
 
-                price = computePrice(this,instrument);
+                if (isa(this.model,'SVCJ'))
+                    price = computeSVCJPrice(this,instrument);
+
+                elseif (isa(this.model,'BSM'))
+                    price = computeBSMPrice(this,instrument,varargin{:});
+
+                elseif (isa(this.model,'Heston'))
+
+                else
+                    Logger.getInstance.log(LogType.FATAL,...
+                        'Non-implemented model is set to EuropeanOptionPricer, cannot calculate price');
+                end
                 this.instrumentList(i).setPrice(price);
             end
+        end
+
+        % calculateImpliedVol
+        function calculateImpliedVol(this,varargin)
+            for i = 1:length(this.instrumentList)
+                instrument = this.instrumentList(i);
+                price = instrument.getPrice;
+                strike = instrument.getStrike;
+                [~,t0] = getInitialPriceAndT0(this);
+                % dev: get the number of periods that match maturity date
+                maturityInPeriods = abs(days365(datenum(t0),datenum(option.getMaturity)));
+                interestRate = 0.03;
+                type = instrument.getType;
+
+                if (isa(this.model,'BSM'))
+                    impVol = getImpliedVol(this,price, strike,maturityInPeriods,interestRate, type, varargin{:});
+
+                else
+                    Logger.getInstance.log(LogType.FATAL,...
+                        'Non-implemented model to calculate implied vol set to EuropeanOptionPricer, cannot imply vol');
+                end
+                this.instrumentList(i).setImpliedVol(impVol);
+            end
+
         end
     end
 
     %% Private methods
     methods (Access = private)
 
-        %ApplyCallPayoff
-        function price = computePrice(this,option)
+        % computeBSMPrice
+        function price = computeBSMPrice(this,option,varargin)
+
+            % get necessary properties
+            strike = option.getStrike;
+            [~,t0] = getInitialPriceAndT0(this);
+            % dev: get the number of periods that match maturity date
+            maturityInPeriods = abs(days365(datenum(t0),datenum(option.getMaturity)));
+            volatility = option.getImpliedVol;
+            interestRate = 0.03;
+
+            if strcmp(option.getType,'call')
+                price = this.model.getCallPrice(strike,maturityInPeriods,interestRate,volatility,varargin{:});
+
+            elseif strcmp(option.getType,'put')
+                price = this.model.getPutPrice(strike,maturityInPeriods,interestRate,volatility,varargin{:});
+
+            else
+                Logger.getInstance.log(LogType.FATAL,...
+                    ['Type unknown for id = ', num2str(option.getId),...
+                    ' name = ',option.getName]);
+
+            end
+
+        end
+
+        % computeSVCJPrice
+        function price = computeSVCJPrice(this,option)
 
             [sInitial,t0] = getInitialPriceAndT0(this);
             % get necessary properties
@@ -116,7 +177,7 @@ classdef EuropeanOptionPricer < handle
             end
         end
 
-        %applyPutPayoff
+        % applyCallPayoff
         function price = applyCallPayoff(this,simulatedPrices,maturityInPeriods,strike)
             terminalPrices = simulatedPrices(:,maturityInPeriods+1);
             % max(s-k,0)
@@ -125,7 +186,7 @@ classdef EuropeanOptionPricer < handle
             price = mean(terminalPayoffs * exp(-0.03 * maturityInPeriods/365));
         end
 
-        %applyPutPayoff
+        % applyPutPayoff
         function price = applyPutPayoff(this,simulatedPrices,maturityInPeriods,strike)
 
             terminalPrices = simulatedPrices(:,maturityInPeriods+1);
@@ -135,41 +196,51 @@ classdef EuropeanOptionPricer < handle
             price = mean(terminalPayoffs);
         end
 
-        %getInitialPriceAndT0
+        % getInitialPriceAndT0
         function [sInitial,t0] = getInitialPriceAndT0(this)
             sInitial = this.underlying.getPriceTS.getLastValue;
             t0 = datestr(this.underlying.getPriceTS.getLastDate);
         end
 
-        %setModel
+        % setModel
         function setModel(this,model)
             if (strcmp(model,'SVCJ')) % dev: check model name
 
                 if isempty(this.getModel)  % dev: if empty create and calibrate
                     mod = SVCJ(this.underlying);
                     mod.calibrate();
-                    if (mod.isCalibrated == ModelCalibration.SUCCESS)       
+                    if (mod.isCalibrated == ModelCalibration.SUCCESS)
                         Logger.getInstance.log(LogType.INFO,...
-                            'Model is calibrated and set to EuropeanOptionPricer');
+                            'SCVJ model is calibrated and set to EuropeanOptionPricer');
                     else
                         Logger.getInstance.log(LogType.WARN,...
-                            'Potentially non-clibrated model set to EuropeanOptionPricer');
+                            'Potentially non-clibrated SCVJ model set to EuropeanOptionPricer');
                     end
                     this.model = mod;
                 elseif (isa(this.model,'SVCJ') && this.model.isCalibrated == ModelCalibration.NOT_CALIBRATED)
                     this.model.calibrate();
-                    if (this.model.isCalibrated == ModelCalibration.SUCCESS)       
+                    if (this.model.isCalibrated == ModelCalibration.SUCCESS)
                         Logger.getInstance.log(LogType.INFO,...
-                            'Model is calibrated and set to EuropeanOptionPricer');
+                            'SCVJ model is calibrated and set to EuropeanOptionPricer');
                     else
                         Logger.getInstance.log(LogType.WARN,...
-                            'Potentially non-clibrated model set to EuropeanOptionPricer');
+                            'Potentially non-clibrated SCVJ model set to EuropeanOptionPricer');
                     end
 
                 else
                     Logger.getInstance.log(LogType.INFO,...
-                            ['SVCJ model already set to EuropeanOptionPricer with calibration status: ', char(this.model.isCalibrated)]);
+                        ['SVCJ model already set to EuropeanOptionPricer with calibration status: ', char(this.model.isCalibrated)]);
                 end
+
+            elseif (strcmp(model,'BSM'))
+                mod = BSM(this.underlying);
+                this.model = mod;
+                Logger.getInstance.log(LogType.INFO,...
+                    'BSM model is set to EuropeanOptionPricer');
+
+            elseif (strcmp(model,'Heston'))
+                Logger.getInstance.log(LogType.INFO,...
+                    'Heston model is set to EuropeanOptionPricer');
 
             else
                 Logger.getInstance.log(LogType.FATAL,...
