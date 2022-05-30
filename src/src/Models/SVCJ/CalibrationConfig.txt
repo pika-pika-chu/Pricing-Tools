@@ -1,2 +1,0 @@
-id,modelName,returnMethod,annulisationFactor,numRuns,burnInPeriod
-m_1,SVCJ,continuous,250,6000,1000
