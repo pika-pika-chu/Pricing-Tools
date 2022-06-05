@@ -1,0 +1,5 @@
+id,name,ticker,type,strike,maturity,marketPrice
+1,BTC1,BTC/USD,call,30000,59,4483.91
+2,BTC1,BTC/USD,call,32000,59,3372.51
+3,BTC1,BTC/USD,call,34000,59,2478.28
+4,BTC1,BTC/USD,call,35000,59,2111.05

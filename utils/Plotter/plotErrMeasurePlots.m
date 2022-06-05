@@ -91,7 +91,7 @@ Res_G = returns./sqrt(vG);
 figure()
 
 t = tiledlayout(1,3);
-title(t,'Residulas','fontsize',titleFont,'fontname','Calibri','fontweight','bold')
+title(t,'Residuals','fontsize',titleFont,'fontname','Calibri','fontweight','bold')
 
 t0 = nexttile;
 normplot(resReturns);

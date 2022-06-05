@@ -1,0 +1,2 @@
+id,modelName,v0,vT,rho,kappa,sigma,lambda,muJ,sigmaJ
+m_1,Bates,0.40,0.31,-0.55,0.0209,0.190,0.85,0.2,0.55
