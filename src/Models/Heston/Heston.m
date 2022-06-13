@@ -3,7 +3,7 @@ classdef Heston < handle
 
     %% Private Properties
     properties (Access = private)
-        underlying;
+
         initialParamConfig = struct(...
             'v0',[],...
             'theta',[],...
@@ -25,9 +25,7 @@ classdef Heston < handle
 
     %% Constructor
     methods
-        function this = Heston(coin)
-            this.underlying = coin;
-
+        function this = Heston()
             % dev: check and load inital param for calibration
             checkAndLoadModelConfig(this);
         end
@@ -38,21 +36,12 @@ classdef Heston < handle
     methods (Access = public)
 
         % getCallPrice
-        function [prices,alphas] = getCallPrice(this,strike,timeToMaturity,interestRate,varargin)
+        function [prices,alphas] = getCallPrice(this,strike,timeToMaturity,interestRate,sInitial,div)
 
             if (this.isCalibrated == ModelCalibration.NOT_CALIBRATED ||...
                     this.isCalibrated == ModelCalibration.FAILURE)
                 Logger.getInstance.log(LogType.FATAL,...
                     'Model not calibrated, calibrate before calling pricing methods!');
-
-            end
-
-            if ~isempty(varargin)
-                [sInitial,div] = getVararginValues(this,varargin{:});
-
-            else
-                sInitial = this.underlying.getPriceTS.getLastValue;
-                div = 0;
 
             end
 
@@ -66,7 +55,7 @@ classdef Heston < handle
         end
 
         % getPutPrice
-        function [prices,alphas] = getPutPrice(this,strike,timeToMaturity,interestRate,varargin)
+        function [prices,alphas] = getPutPrice(this,strike,timeToMaturity,interestRate,sInitial,div)
 
             if (isCalibrated == ModelCalibration.NOT_CALIBRATED ||...
                     isCalibrated == ModelCalibration.FAILURE)
@@ -75,14 +64,6 @@ classdef Heston < handle
 
             end
 
-            if ~isempty(varargin)
-                [sInitial,div] = getVararginValues(varargin{:});
-
-            else
-                sInitial = this.underlying.getPriceTS.getLastValue;
-                div = 0;
-
-            end
 
             [prices,alphas] = calculatePutPrice(this,strike,timeToMaturity,interestRate,sInitial,div,...
                 this.calibratedParam.v0,...
@@ -94,21 +75,14 @@ classdef Heston < handle
         end
 
         % calibrate
-        function calibrate(this,marketPrice, strike, timeToMaturity, interestRate,type, varargin)
+        function calibrate(this,marketPrice, strike, timeToMaturity, interestRate,type, sInitial,div)
 
             if (this.isCalibrated == ModelCalibration.SUCCESS)
                 Logger.getInstance.log(LogType.INFO,...
                     'Model already calibrated!');
 
             else
-                if ~isempty(varargin)
-                    [sInitial,div] = getVararginValues(this,varargin{:});
 
-                else
-                    sInitial = this.underlying.getPriceTS.getLastValue;
-                    div = 0;
-
-                end
                 calibrateModel(this,marketPrice,strike,timeToMaturity,interestRate,type,sInitial,div);
                 this.calibrated = ModelCalibration.SUCCESS;
             end
@@ -133,20 +107,35 @@ classdef Heston < handle
                 this.initialParamConfig.kappa,...
                 this.initialParamConfig.sigma];
             alpha0 = this.initialParamConfig.alpha0;
-            options = optimoptions('lsqnonlin','Algorithm','levenberg-marquardt', 'Display', 'iter');
+            options = optimoptions('lsqnonlin','Display', 'iter'); %'Algorithm','levenberg-marquardt'
 
             if (sum(strcmp(type, 'call')) == length(type))
-                paramsOut = lsqnonlin(@(x) this.calculateCallPrice(strike,timeToMaturity,interestRate,sInitial,div,x(1),x(2),x(3),x(4),x(5),alpha0) - marketPrice,...
-                    iniParams,...
-                    [eps eps -1+eps eps eps  ], ... % dev:LB calibrated params
-                    [Inf Inf 1-eps Inf  Inf  ], ...  % dev:UB for calibrated params
-                    options);
+                    
+                 paramsOut = fmincon(@(x) sum((marketPrice - ...
+                    this.calculateCallPrice(strike,timeToMaturity,interestRate,sInitial,div,x(1),x(2),x(3),x(4),x(5),alpha0)).^2),...
+                    iniParams,[],[],[],[],...
+                    [0 0 -0.9 0 0], ... % dev:LB calibrated params
+                    [1 5 0.9 20 5]);
+%                 paramsOut = lsqnonlin(@(x) (marketPrice - ...
+%                     this.calculateCallPrice(strike,timeToMaturity,interestRate,sInitial,div,x(1),x(2),x(3),x(4),x(5),alpha0)),...
+%                     iniParams,...
+%                     [0 0 -0.9 0 0], ... % dev:LB calibrated params
+%                     [1 3 0.9 100 2], ...  % dev:UB for calibrated params
+%                     options);
             else
-                paramsOut = lsqnonlin(@(x) this.calculatePutPrice(strike,timeToMaturity,interestRate,sInitial,div,x(1),x(2),x(3),x(4),x(5),alpha0) - marketPrice,...
-                    iniParams,...
-                    [eps eps -1+eps eps eps  ], ... % dev:LB calibrated params
-                    [Inf Inf 1-eps Inf  Inf  ], ...  % dev:UB for calibrated params
-                    options);
+                paramsOut = fmincon(@(x) sum((marketPrice - ...
+                    this.calculatePutPrice(strike,timeToMaturity,interestRate,sInitial,div,x(1),x(2),x(3),x(4),x(5),alpha0)).^2),...
+                    iniParams,[],[],[],[],...
+                    [0 0 -0.9 0 0], ... % dev:LB calibrated params
+                    [1 3 0.9 100 2]);
+                
+                
+%                 lsqnonlin(@(x) sum(abs(marketPrice - ...
+%                     this.calculatePutPrice(strike,timeToMaturity,interestRate,sInitial,div,x(1),x(2),x(3),x(4),x(5),alpha0))./marketPrice),...
+%                     iniParams,...
+%                     [0 0 -0.9 0 0], ... % dev:LB calibrated params
+%                     [1 1 0.9 100 1], ...  % dev:UB for calibrated params
+%                     options);
 
             end
             this.calibratedParam.v0 = paramsOut(1);
@@ -379,16 +368,6 @@ classdef Heston < handle
 
     %% Public methods
     methods (Access = public)
-
-        %getUnderlying
-        function underlying = getUnderlying(this)
-            underlying = this.underlying;
-        end
-
-        %setUnderlying
-        function setUnderlying(this,underlying)
-            this.underlying = underlying;
-        end
 
         %isCalibrated
         function calibrationStatus = isCalibrated(this)

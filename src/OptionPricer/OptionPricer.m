@@ -2,27 +2,14 @@ classdef OptionPricer < handle
 
     %% Protected properties
     properties (Access = protected)
-        underlying;
-        iRCurve;
+        valuationDate;
+        irCurve;
     end
 
     %% Constructor
     methods
-        function this = OptionPricer(underlying)
-            if (isa(underlying,'Coin'))
-                this.underlying = underlying;
-                Logger.getInstance.log(LogType.INFO,...
-                    'Underlying instruments parsed to EuropeanOptionPricer');
-
-            else
-                Logger.getInstance.log(LogType.FATAL,...
-                    'Incorrect underlying instruments parsed to EuropeanOptionPricer');
-            end
-
-            settle = this.underlying.getPriceTS.getLastDate;
-            currency = this.underlying.getBaseCurreny;
-
-            this.iRCurve = sourceIRCurve(this,settle,currency);
+        function this = OptionPricer(valuationDate)
+            this.valuationDate = valuationDate;
         end
 
     end
@@ -30,23 +17,59 @@ classdef OptionPricer < handle
     %% Public methods
     methods (Access = public)
 
-        %getUnderlying
-        function underlying = getUnderlying(this)
-            underlying = this.underlying;
+        %getValuationDate
+        function valuationDate = getValuationDate(this)
+            valuationDate = this.valuationDate;
         end
 
-        %setUnderlying
-        function setUnderlying(this,underlying)
-            this.underlying = underlying;
+        %setValuationDate
+        function setValuationDate(this,valuationDate)
+            this.valuationDate = valuationDate;
+        end
+
+        %getIrCurve
+        function irCurve = getIrCurve(this)
+            irCurve = this.irCurve;
+        end
+
+        %setIrCurve
+        function setIrCurve(this,irCurve)
+            this.irCurve = irCurve;
         end
     end
 
     %% Private methods
-    methods (Access = private)
+    methods (Access = protected)
+
+        % checkAndLoadIRCurve(this,instrument)
+        function checkAndLoadIRCurve(this,instrument)
+            if isempty(this.irCurve)
+                currency = instrument.getBaseCurrency;
+                this.irCurve = sourceIRCurve(this, this.valuationDate,currency);
+                Logger.getInstance.log(LogType.INFO,...
+                    ['IR Curve loaded for currency', char(currency), ' and date: ',char(this.valuationDate)]);
+
+            else
+                if strcmp(this.irCurve.getSettle,this.valuationDate) && ...
+                        strcmp(char(this.irCurve.getCurrency),char(instrument.getBaseCurrency))
+
+                    Logger.getInstance.log(LogType.INFO,...
+                        ['IR Curve already loaded for currency', char(instrument.getBaseCurrency), ' and date: ',char(this.valuationDate)]);
+
+                else
+                    currency = instrument.getBaseCurrency;
+                    this.irCurve = sourceIRCurve(this, this.valuationDate,currency);
+                    Logger.getInstance.log(LogType.INFO,...
+                        ['IR Curve loaded for currency', char(currency), ' and date: ',char(this.valuationDate)]);
+
+                end
+
+            end
+        end
 
         % sourceIRCurve
         function irCurve = sourceIRCurve(this, settle,currency)
-                irCurve = buildIRCurve(datestr(settle),currency);
+            irCurve = buildIRCurve(datestr(settle),currency);
         end
 
     end

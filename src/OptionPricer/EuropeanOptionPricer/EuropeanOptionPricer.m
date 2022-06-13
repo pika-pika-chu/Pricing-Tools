@@ -10,9 +10,9 @@ classdef EuropeanOptionPricer < OptionPricer
 
     %% Constructor
     methods
-        function this = EuropeanOptionPricer(underlying,instrumentList,model)
-            this = this@OptionPricer(underlying)
-            
+        function this = EuropeanOptionPricer(valuationDate,instrumentList,model)
+            this = this@OptionPricer(valuationDate)
+
             for i = 1:length(instrumentList)
                 instrument = instrumentList(i);
                 if (isa(instrument,'EuropeanOption'))
@@ -50,6 +50,9 @@ classdef EuropeanOptionPricer < OptionPricer
                     ['Pricing instruement with id = ', num2str(instrument.getId),...
                     ' name = ',instrument.getName,' and type = ',instrument.getType]);
 
+                % check if IR curve is loaded
+                checkAndLoadIRCurve(this,instrument)
+
                 if (isa(this.model,'SVCJ'))
                     price = computeSVCJPrice(this,instrument);
 
@@ -66,7 +69,7 @@ classdef EuropeanOptionPricer < OptionPricer
                     Logger.getInstance.log(LogType.FATAL,...
                         'Non-implemented model is set to EuropeanOptionPricer, cannot calculate price');
                 end
-                this.instrumentList(i).setPrice(price);
+                this.instrumentList(i).setPrice(price)
             end
         end
 
@@ -76,14 +79,18 @@ classdef EuropeanOptionPricer < OptionPricer
                 instrument = this.instrumentList(i);
                 price = instrument.getPrice;
                 strike = instrument.getStrike;
-                [~,t0] = getInitialPriceAndT0(this);
+                [sInitial,valDate,div] = getUnderyingParam(this,instrument);
                 % dev: get the number of periods that match maturity date
-                maturityInPeriods = abs(days365(datenum(t0),datenum(option.getMaturity)));
-                interestRate = 0.03;
-                type = instrument.getType;
+                maturityInYears = abs(days365(datenum(valDate),datenum(instrument.getMaturity)))/365;
 
+                % check if IR curve is loaded
+                checkAndLoadIRCurve(this,instrument)
+                interestRate = this.irCurve.getZeroRates(instrument.getMaturity);
+
+                type = instrument.getType;
+                underlying = instrument.getUnderlying;
                 if (isa(this.model,'BSM'))
-                    impVol = getImpliedVol(this,price, strike,maturityInPeriods,interestRate, type, varargin{:});
+                    impVol = this.model.getImpliedVol(underlying,price, strike,maturityInYears,interestRate, type, sInitial,div);
 
                 else
                     Logger.getInstance.log(LogType.FATAL,...
@@ -103,16 +110,17 @@ classdef EuropeanOptionPricer < OptionPricer
 
             % get necessary properties
             strike = option.getStrike;
-            [~,t0] = getInitialPriceAndT0(this);
-            % dev: get the number of periods that match maturity date
-            maturityInPeriods = abs(days365(datenum(t0),datenum(option.getMaturity)));
-            interestRate = this.iRCurve.getZeroRates(option.getMaturity);
+            [sInitial,valDate,div] = getUnderyingParam(this,option);
+            % dev: get the number of periods that match maturity date and
+            % turn into years
+            maturityInYears = abs(days365(datenum(valDate),datenum(option.getMaturity)))/365;
+            interestRate = this.irCurve.getZeroRates(option.getMaturity);
 
             if strcmp(option.getType,'call')
-                price = this.model.getCallPrice(strike,maturityInPeriods,interestRate,varargin{:});
+                price = this.model.getCallPrice(strike,maturityInYears,interestRate,sInitial,div);
 
             elseif strcmp(option.getType,'put')
-                price = this.model.getPutPrice(strike,maturityInPeriods,interestRate,varargin{:});
+                price = this.model.getPutPrice(strike,maturityInYears,interestRate,sInitial,div);
 
             else
                 Logger.getInstance.log(LogType.FATAL,...
@@ -128,17 +136,18 @@ classdef EuropeanOptionPricer < OptionPricer
 
             % get necessary properties
             strike = option.getStrike;
-            [~,t0] = getInitialPriceAndT0(this);
-            % dev: get the number of periods that match maturity date
-            maturityInPeriods = abs(days365(datenum(t0),datenum(option.getMaturity)));
-            interestRate = this.iRCurve.getZeroRates(option.getMaturity);
+            [sInitial,valDate,div] = getUnderyingParam(this,option);
+            % dev: get the number of periods that match maturity date and
+            % turn into years
+            maturityInYears = abs(days365(datenum(valDate),datenum(option.getMaturity)))/365;
+            interestRate = this.irCurve.getZeroRates(option.getMaturity);
 
             if strcmp(option.getType,'call')
-                price = this.model.getCallPrice(strike,maturityInPeriods,interestRate,varargin{:});
+                price = this.model.getCallPrice(strike,maturityInYears,interestRate,sInitial,div);
 
             elseif strcmp(option.getType,'put')
                 %price = this.model.getPutPrice(strike,maturityInPeriods,interestRate,varargin{:});
-            Logger.getInstance.log(LogType.FATAL,...
+                Logger.getInstance.log(LogType.FATAL,...
                     'Bates pricing function for Puts not implemented yet');
             else
                 Logger.getInstance.log(LogType.FATAL,...
@@ -154,17 +163,18 @@ classdef EuropeanOptionPricer < OptionPricer
 
             % get necessary properties
             strike = option.getStrike;
-            [~,t0] = getInitialPriceAndT0(this);
+            [sInitial,valDate,div] = getUnderyingParam(this,option);
             % dev: get the number of periods that match maturity date
-            maturityInPeriods = abs(days365(datenum(t0),datenum(option.getMaturity)));
+            maturityInYears = abs(days365(datenum(valDate),datenum(option.getMaturity)))/365;
             volatility = option.getImpliedVol;
-            interestRate = 0.03;
+            interestRate = this.irCurve.getZeroRates(option.getMaturity);
+            underlying = option.getUnderlying;
 
             if strcmp(option.getType,'call')
-                price = this.model.getCallPrice(strike,maturityInPeriods,interestRate,volatility,varargin{:});
+                price = this.model.getCallPrice(underlying,strike,maturityInYears,interestRate,volatility,sInitial,div);
 
             elseif strcmp(option.getType,'put')
-                price = this.model.getPutPrice(strike,maturityInPeriods,interestRate,volatility,varargin{:});
+                price = this.model.getPutPrice(underlying,strike,maturityInYears,interestRate,volatility,sInitial,div);
 
             else
                 Logger.getInstance.log(LogType.FATAL,...
@@ -178,7 +188,7 @@ classdef EuropeanOptionPricer < OptionPricer
         % computeSVCJPrice
         function price = computeSVCJPrice(this,option)
 
-            [sInitial,t0] = getInitialPriceAndT0(this);
+            [sInitial,t0] = getUnderyingParam(this);
             % get necessary properties
             strike = option.getStrike;
 
@@ -242,10 +252,19 @@ classdef EuropeanOptionPricer < OptionPricer
             price = mean(terminalPayoffs);
         end
 
-        % getInitialPriceAndT0
-        function [sInitial,t0] = getInitialPriceAndT0(this)
-            sInitial = this.underlying.getPriceTS.getLastValue;
-            t0 = datestr(this.underlying.getPriceTS.getLastDate);
+        % getUnderyingParam
+        function [sInitial,valDate,div] = getUnderyingParam(this,option)
+
+            if isa(option.getUnderlying,'Coin')
+                sInitial = option.getUnderlying.getPriceTS.getLastValue;
+                valDate = datestr(option.getUnderlying.getPriceTS.getLastDate);
+                div = option.getUnderlying.getDivYield;
+
+            elseif isa(option.getUnderlying,'Future')
+                sInitial = option.getUnderlying.getPrice;
+                valDate = datestr(option.getUnderlying.getValuationDate);
+                div = option.getUnderlying.getUnderlying.getDivYield;
+            end
         end
 
         % setModel
@@ -254,7 +273,7 @@ classdef EuropeanOptionPricer < OptionPricer
                 setSVCJModel(this);
 
             elseif (strcmp(model,'BSM'))
-                mod = BSM(this.underlying);
+                mod = BSM();
                 this.model = mod;
                 Logger.getInstance.log(LogType.INFO,...
                     'BSM model is set to EuropeanOptionPricer');
@@ -270,11 +289,8 @@ classdef EuropeanOptionPricer < OptionPricer
                     [model, ' not implemented']);
 
             end
-
-
-
         end
-        
+
         % setSVCJModel
         function setSVCJModel(this)
             if isempty(this.getModel)  % dev: if empty create and calibrate
@@ -303,19 +319,19 @@ classdef EuropeanOptionPricer < OptionPricer
                     ['SVCJ model already set to EuropeanOptionPricer with calibration status: ', char(this.model.isCalibrated)]);
             end
         end
-    
+
         % setHestonModel
         function setHestonModel(this)
 
             if isempty(this.getModel)  % dev: if empty create and calibrate
-                mod = Heston(this.underlying);
+                mod = Heston();
                 this.model = mod;
                 Logger.getInstance.log(LogType.INFO,...
                     'Heston model parsed to EuropeanOptionPricer but not calibrated');
                 % dev: get market data from instrument list and calibrate
                 % model
-                [marketPrice, strike, maturityInPeriods,interestRate, type] = buildOptionMarketDataForCalibration(this);
-                this.model.calibrate(marketPrice, strike, maturityInPeriods, interestRate,type);
+                [marketPrice, strike, maturityInYears,interestRate,type,sInitial] = buildOptionMarketDataForCalibration(this);
+                this.model.calibrate(marketPrice, strike, maturityInYears, interestRate,type, sInitial,0);
 
                 if (this.model.isCalibrated == ModelCalibration.SUCCESS)
                     Logger.getInstance.log(LogType.INFO,...
@@ -324,11 +340,11 @@ classdef EuropeanOptionPricer < OptionPricer
                     Logger.getInstance.log(LogType.WARN,...
                         'Potentially non-clibrated Heston model set to EuropeanOptionPricer');
                 end
-                
+
             elseif this.model.isCalibrated == ModelCalibration.NOT_CALIBRATED
 
-                [marketPrice, strike, maturityInPeriods,interestRate] = buildOptionMarketDataForCalibration(this);
-                this.model.calibrate(marketPrice, strike, maturityInPeriods, interestRate,type);
+                [marketPrice, strike, maturityInYears,interestRate,type,sInitial] = buildOptionMarketDataForCalibration(this);
+                this.model.calibrate(marketPrice, strike, maturityInYears, interestRate,type, sInitial,0);
                 if (this.model.isCalibrated == ModelCalibration.SUCCESS)
                     Logger.getInstance.log(LogType.INFO,...
                         'Heston model is calibrated and set to EuropeanOptionPricer');
@@ -347,14 +363,14 @@ classdef EuropeanOptionPricer < OptionPricer
         function setBatesModel(this)
 
             if isempty(this.getModel)  % dev: if empty create and calibrate
-                mod = Bates(this.underlying);
+                mod = Bates();
                 this.model = mod;
                 Logger.getInstance.log(LogType.INFO,...
                     'Bates model parsed to EuropeanOptionPricer but not calibrated');
                 % dev: get market data from instrument list and calibrate
                 % model
-                [marketPrice, strike, maturityInPeriods,interestRate, type] = buildOptionMarketDataForCalibration(this);
-                this.model.calibrate(marketPrice, strike, maturityInPeriods, interestRate,type);
+                [marketPrice, strike, maturityInYears,interestRate, type, sInitial] = buildOptionMarketDataForCalibration(this);
+                this.model.calibrate(marketPrice, strike, maturityInYears, interestRate,type, sInitial,0);
 
                 if (this.model.isCalibrated == ModelCalibration.SUCCESS)
                     Logger.getInstance.log(LogType.INFO,...
@@ -363,11 +379,11 @@ classdef EuropeanOptionPricer < OptionPricer
                     Logger.getInstance.log(LogType.WARN,...
                         'Potentially non-clibrated Bates model set to EuropeanOptionPricer');
                 end
-                
+
             elseif this.model.isCalibrated == ModelCalibration.NOT_CALIBRATED
 
-                [marketPrice, strike, maturityInPeriods,interestRate] = buildOptionMarketDataForCalibration(this);
-                this.model.calibrate(marketPrice, strike, maturityInPeriods, interestRate,type);
+                [marketPrice, strike, maturityInYears,interestRate,type, sInitial] = buildOptionMarketDataForCalibration(this);
+                this.model.calibrate(marketPrice, strike, maturityInYears, interestRate,type, sInitial,0);
                 if (this.model.isCalibrated == ModelCalibration.SUCCESS)
                     Logger.getInstance.log(LogType.INFO,...
                         'Bates model is calibrated and set to EuropeanOptionPricer');
@@ -381,28 +397,33 @@ classdef EuropeanOptionPricer < OptionPricer
                     ['Bates model already set to EuropeanOptionPricer with calibration status: ', char(this.model.isCalibrated)]);
             end
         end
-        
+
         % buildOptionMarketDataForCalibration
-        function [marketPrice, strike, maturityInPeriods,interestRate, type] = buildOptionMarketDataForCalibration(this)
+        function [marketPrice, strike, maturityInYears,interestRate,type, sInitial] = buildOptionMarketDataForCalibration(this)
 
             nosOfOptions = length(this.instrumentList);
             strike = nan(nosOfOptions,1);
             marketPrice = nan(nosOfOptions,1);
-            maturityInPeriods = nan(nosOfOptions,1);
+            maturityInYears = nan(nosOfOptions,1);
             interestRate = nan(nosOfOptions,1);
-            
-
-            [~,t0] = getInitialPriceAndT0(this);
+            sInitial = nan(nosOfOptions,1);
 
             for i = 1:nosOfOptions
                 instrument = this.instrumentList(i);
+                [underlyingPrice,t0] = getUnderyingParam(this,instrument);
+
                 strike(i) = instrument.getStrike;
                 marketPrice(i) = instrument.getPrice;
-                interestRate(i) = this.iRCurve.getZeroRates(instrument.getMaturity);
+
+                % check if IR curve is loaded
+                checkAndLoadIRCurve(this,instrument)
+
+                interestRate(i) = this.irCurve.getZeroRates(instrument.getMaturity);
                 type{i,1} = instrument.getType;
+                sInitial(i) = underlyingPrice;
 
                 % dev: get the number of periods that match maturity date
-                maturityInPeriods(i) = abs(days365(datenum(t0),datenum(instrument.getMaturity)));
+                maturityInYears(i) = abs(days365(datenum(t0),datenum(instrument.getMaturity)))/365;
 
             end
         end

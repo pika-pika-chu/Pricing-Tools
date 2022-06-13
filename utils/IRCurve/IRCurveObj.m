@@ -68,6 +68,27 @@ classdef IRCurveObj < handle
         function rate = getZeroRates(this,date)
             rate = this.iRCurve.getZeroRates(date);
         end
+
+        %getSettle
+        function settle = getSettle(this)
+            settle = this.settle;
+        end
+
+        %setSettle
+        function setSettle(this,settle)
+            this.settle = settle;
+        end
+
+        %getCurrency
+        function currency = getCurrency(this)
+            currency = this.currency;
+        end
+
+        %setCurrency
+        function setCurrency(this,currency)
+            this.currency = currency;
+        end
+
     end
     %% Private methods
     methods (Access = private)
@@ -93,7 +114,7 @@ classdef IRCurveObj < handle
                 basis = varargin{basisIdx + 1};
             end
 
-             if ~isempty(interpMethodIdx)
+            if ~isempty(interpMethodIdx)
                 interpMethod = varargin{interpMethodIdx + 1};
             end
 

@@ -20,7 +20,9 @@ for i = 1:height(tt)
     euOption.setMaturity(maturity);
     euOption.setStrike(strike);
     if contains(fileName,'Heston')
+        vol = tt.vol(i);
         price = tt.marketPrice(i);
+        euOption.setImpliedVol(vol);
         euOption.setPrice(price);
     end
 

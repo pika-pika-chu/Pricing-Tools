@@ -1,3 +1,9 @@
 id,modelName,v0,theta,rho,kappa,sigma,alpha0
 m_1,Heston2,0.01,-0.02,-0.75,0.2,0.50,0.75
-m_1,Heston,0.5545,0.031,-0.12,0.00209,0.190,0.75
+m_1,Heston2,0.6,0.3,-0.15,0.00209,0.2,0.75
+m_1,Heston1,0.6,0.3,-0.15,1,0.2,0.75
+8Jun_BTC_All_Strikes,Heston5,0.5,0.3,0.8,2.0,1.3,0.75
+8Jun_BTC_OTM_Strikes,Heston6,0.4,0.55,-0.2,5,1.8,0.75
+11Jun_BTC_OTM_Strikes,Heston7,0.4,0.55,-0.5,8,1.8,0.75
+11Jun_ETH_OTM_Strikes,Heston,0.1,0.3,0.5,11,0.4,0.75
+

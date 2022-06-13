@@ -4,20 +4,21 @@ classdef Coin < Instrument
     %% Private Properties
     properties (Access = private)
         type; % dev: token or coin-> CoinType ENUM
-        baseCurreny;% Currency ENUM
+        baseCurrency;% Currency ENUM
         priceTS; % Timeseries
+        divYield;
     end
 
     %% Constructor
     methods
         function this = Coin(varargin)
             this = this@Instrument(varargin{:});
-             Logger.getInstance.log(LogType.INFO,'Coin initalised');
+            Logger.getInstance.log(LogType.INFO,'Coin initalised');
         end
 
     end
     %% Getters and Setters
-    methods
+    methods (Access = public)
         %getType
         function type = getType(this)
             type = this.type;
@@ -56,21 +57,31 @@ classdef Coin < Instrument
         end
 
         %getBaseCurreny
-        function baseCurreny = getBaseCurreny(this)
-            baseCurreny = this.baseCurreny;
+        function baseCurrency = getBaseCurrency(this)
+            baseCurrency = this.baseCurrency;
         end
 
         %setBaseCurreny
-        function setBaseCurreny(this,baseCurreny)
+        function setBaseCurrency(this,baseCurrency)
             % dev: check if parsed type isa CoinType ENUM
-            if isa(baseCurreny,'Currency')
-                this.baseCurreny = baseCurreny;
+            if isa(baseCurrency,'Currency')
+                this.baseCurrency = baseCurrency;
                 Logger.getInstance.log(LogType.INFO,...
                     'BaseCurrency type provided and set');
             else
                 Logger.getInstance.log(LogType.FATAL,...
                     'Parse type not of Currency ENUM');
             end
+        end
+
+        %getDivYield
+        function divYield = getDivYield(this)
+            divYield = this.divYield;
+        end
+
+        %setDivYield
+        function setDivYield(this,divYield)
+            this.divYield = divYield;
         end
 
     end

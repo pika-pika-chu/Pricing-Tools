@@ -3,7 +3,6 @@ classdef Bates < handle
 
     %% Private Properties
     properties (Access = private)
-        underlying;
         calibrated = ModelCalibration.NOT_CALIBRATED;
 
         initialParamConfig = struct(...
@@ -29,8 +28,7 @@ classdef Bates < handle
 
     %% Constructor
     methods
-        function this = Bates(coin)
-            this.underlying = coin;
+        function this = Bates()
 
             % dev: check and load inital param for calibration
             checkAndLoadModelConfig(this);
@@ -40,21 +38,12 @@ classdef Bates < handle
     %% Public methods
     methods (Access = public)
         % getCallPrice
-        function price = getCallPrice(this,strike,timeToMaturity,interestRate,varargin)
+        function price = getCallPrice(this,strike,timeToMaturity,interestRate,sInitial,div)
 
             if (this.isCalibrated == ModelCalibration.NOT_CALIBRATED ||...
                     this.isCalibrated == ModelCalibration.FAILURE)
                 Logger.getInstance.log(LogType.FATAL,...
                     'Model not calibrated, calibrate before calling pricing methods!');
-
-            end
-
-            if ~isempty(varargin)
-                [sInitial,div] = getVararginValues(this,varargin{:});
-
-            else
-                sInitial = this.underlying.getPriceTS.getLastValue;
-                div = 0;
 
             end
 
@@ -70,21 +59,14 @@ classdef Bates < handle
         end
 
         % calibrate
-        function calibrate(this,marketPrice, strike, timeToMaturity, interestRate,type, varargin)
+        function calibrate(this,marketPrice, strike, timeToMaturity, interestRate,type, sInitial, div)
 
             if (this.isCalibrated == ModelCalibration.SUCCESS)
                 Logger.getInstance.log(LogType.INFO,...
                     'Model already calibrated!');
 
             else
-                if ~isempty(varargin)
-                    [sInitial,div] = getVararginValues(this,varargin{:});
-
-                else
-                    sInitial = this.underlying.getPriceTS.getLastValue;
-                    div = 0;
-
-                end
+                
                 calibrateModel(this,marketPrice,strike,timeToMaturity,interestRate,type,sInitial,div);
                 this.calibrated = ModelCalibration.SUCCESS;
             end
@@ -96,19 +78,19 @@ classdef Bates < handle
     %% Public methods
     methods (Access = public)
 
-        %getUnderlying
-        function underlying = getUnderlying(this)
-            underlying = this.underlying;
-        end
-
-        %setUnderlying
-        function setUnderlying(this,underlying)
-            this.underlying = underlying;
-        end
-
         %isCalibrated
         function calibrationStatus = isCalibrated(this)
             calibrationStatus = this.calibrated;
+        end
+
+        %getCalibratedParam
+        function calibratedParam = getCalibratedParam(this)
+            calibratedParam = this.calibratedParam;
+        end
+
+        %setCalibratedParam
+        function setCalibratedParam(this,calibratedParam)
+            this.calibratedParam = calibratedParam;
         end
     end
 
@@ -127,15 +109,15 @@ classdef Bates < handle
 
             for i = 1:nosOfOptions
 
-                vP1 = 0.5 + 1/pi * quadl(@this.P1, 0, 200, [], [], sInitial, strike(i),...
+                vP1 = 0.5 + 1/pi * quadl(@this.P1, 0, 200, [], [], sInitial(i), strike(i),...
                     timeToMaturity(i), interestRate(i), div,...
                     v0 , vT, rho, kappa, sigma, lambda, muJ, sigmaJ);
 
-                vP2 = 0.5 + 1/pi * quadl(@this.P2, 0, 200, [], [], sInitial, strike(i),...
+                vP2 = 0.5 + 1/pi * quadl(@this.P2, 0, 200, [], [], sInitial(i), strike(i),...
                     timeToMaturity(i), interestRate(i), div,...
                     v0, vT, rho, kappa, sigma, lambda, muJ, sigmaJ);
 
-                prices(i) = exp(-div * timeToMaturity(i)) * sInitial *...
+                prices(i) = exp(-div * timeToMaturity(i)) * sInitial(i) *...
                     vP1 - exp(-interestRate(i) * timeToMaturity(i)) * strike(i) * vP2;
             end
 
@@ -176,7 +158,7 @@ classdef Bates < handle
 
             cf = exp(cf1 + cf2 + cf3 + cf4);
         end
-    
+
         % calibrateModel
         function calibrateModel(this,marketPrice,strike,timeToMaturity,interestRate,type,sInitial,div)
 
@@ -194,15 +176,24 @@ classdef Bates < handle
                 this.initialParamConfig.lambda,...
                 this.initialParamConfig.muJ,...
                 this.initialParamConfig.sigmaJ];
-          
-            options = optimoptions('lsqnonlin','Algorithm','levenberg-marquardt', 'Display', 'iter');
+
+            % options = optimoptions('lsqnonlin','Algorithm','levenberg-marquardt', 'Display', 'iter','OptimalityTolerance', 1e-3);
+            options = optimoptions('lsqnonlin', 'Display', 'iter');
 
             if (sum(strcmp(type, 'call')) == length(type))
-                paramsOut = lsqnonlin(@(x) this.calculateCallPrice(strike,timeToMaturity,interestRate,sInitial,div,x(1),x(2),x(3),x(4),x(5),x(6),x(7),x(8)) - marketPrice,...
-                    iniParams,...
-                    [eps eps -1+eps eps eps eps eps eps ], ... % dev:LB calibrated params
-                    [Inf Inf 1-eps Inf  Inf Inf Inf Inf ], ...  % dev:UB for calibrated params
-                    options);
+                paramsOut = fmincon(@(x) (sum(marketPrice - ...
+                    this.calculateCallPrice(strike,timeToMaturity,interestRate,sInitial,div,x(1),x(2),x(3),x(4),x(5),x(6),x(7),x(8))).^2),...
+                    iniParams,[],[],[],[],...
+                    [0  0  -0.9   0   0    0   -1   0 ], ... % dev:LB calibrated params
+                    [1  5   0.9  20  5  2  1  5 ]); ...  % dev:UB for calibrated params
+%                     
+                
+%                 paramsOut = lsqnonlin(@(x) ((marketPrice - ...
+%                     this.calculateCallPrice(strike,timeToMaturity,interestRate,sInitial,div,x(1),x(2),x(3),x(4),x(5),x(6),x(7),x(8)))),...
+%                     iniParams,...
+%                     [0  0  -0.9   0   0    0   -1   0 ], ... % dev:LB calibrated params
+%                     [1  5   0.9  20  5  2  1  2 ], ...  % dev:UB for calibrated params
+%                     options);
             else
                 Logger.getInstance.log(LogType.FATAL,...
                     'Puts pricing routine not implemented for Bates, cannot calibrate model to put prices');
